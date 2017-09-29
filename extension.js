@@ -18,15 +18,17 @@ const GLib = imports.gi.GLib
 
 const Extension = imports.misc.extensionUtils.getCurrentExtension()
 
-const StatusNotifierWatcher = Extension.imports.statusNotifierWatcher
+// const StatusNotifierWatcher = Extension.imports.statusNotifierWatcher
+const StatusNotifierHost = Extension.imports.statusNotifierHost
 const Util = Extension.imports.util
 
 let statusNotifierWatcher = null;
+let statusNotifierHost = null;
 let isEnabled = false;
 
 function init() {
-    NameWatchdog.init();
-    NameWatchdog.onVanished = maybe_enable_after_name_available;
+    // NameWatchdog.init();
+    // NameWatchdog.onVanished = maybe_enable_after_name_available;
 
     //HACK: we want to leave the watchdog alive when disabling the extension,
     // but if we are being reloaded, we destroy it since it could be considered
@@ -52,14 +54,19 @@ function maybe_enable_after_name_available() {
 
 function enable() {
     isEnabled = true;
-    maybe_enable_after_name_available();
+    // maybe_enable_after_name_available();
+    statusNotifierHost = new StatusNotifierHost.StatusNotifierHost()
 }
 
 function disable() {
     isEnabled = false;
-    if (statusNotifierWatcher !== null) {
-        statusNotifierWatcher.destroy();
-        statusNotifierWatcher = null;
+    // if (statusNotifierWatcher !== null) {
+    //     statusNotifierWatcher.destroy();
+    //     statusNotifierWatcher = null;
+    // }
+    if (statusNotifierHost !== null) {
+        statusNotifierHost.destroy();
+        statusNotifierHost = null;
     }
 }
 

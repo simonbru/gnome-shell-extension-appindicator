@@ -51,10 +51,12 @@ let watcherProxy = new WatcherProxy(
 
 print(watcherProxy.RegisteredStatusNotifierItems);
 
-watcherProxy.connectSignal("StatusNotifierItemRegistered", function() {
-    for (arg in arguments) {
-        print(arguments[arg])
-    }
+watcherProxy.connectSignal("StatusNotifierItemRegistered", (proxy, sender, item_name) => {
+    print(`sender: ${sender}, item_name: ${item_name}`)
+})
+
+watcherProxy.connectSignal("StatusNotifierItemUnregistered", (proxy, sender, item_name) => {
+    print(`sender: ${sender}, item_name: ${item_name}`)
 })
 
 let loop = new GLib.MainLoop(null, false);

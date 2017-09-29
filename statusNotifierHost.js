@@ -51,17 +51,14 @@ const StatusNotifierHost = new Lang.Class({
     _init: function() {
         // this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(Interfaces.StatusNotifierWatcher, this);
         // this._dbusImpl.export(Gio.DBus.session, WATCHER_OBJECT);
-        const watcherInfo = Gio.DBusNodeInfo.new_for_xml(Interfaces.StatusNotifierWatcher);
-        this.ttest = Gio.DBusProxy.new_sync(
+        const WatcherProxy = Gio.DBusProxy.makeProxyWrapper(Interfaces.StatusNotifierWatcher);
+        // TODO free
+        this.watcherProxy = new WatcherProxy(
             Gio.DBus.session,
-            Gio.DBusProxyFlags.NONE,
-            watcherInfo,
-            'org.kde.StatusNotifierWatcher',
-            '/StatusNotifierWatcher',
-            'org.kde.StatusNotifierWatcher',
-            null,
-            null,
+            "org.kde.StatusNotifierWatcher",
+            "/StatusNotifierWatcher"
         );
+
         this._everAcquiredName = false;
         this._ownName = Gio.DBus.session.own_name(HOST_BUS_NAME,
                                   Gio.BusNameOwnerFlags.NONE,
@@ -73,6 +70,15 @@ const StatusNotifierHost = new Lang.Class({
 
     _acquiredName: function() {
         this._everAcquiredName = true;
+        this.watcherProxy.connectSignal(
+            "StatusNotifierItemRegistered",
+            this.itemRegistered.bind(this)
+        );
+        this.watcherProxy.connectSignal(
+            "StatusNotifierItemUnregistered",
+            this._itemVanished.bind(this)
+        );
+        this.watcherProxy.RegisterStatusNotifierHostRemote(HOST_BUS_NAME);
     },
 
     _lostName: function() {
@@ -86,6 +92,34 @@ const StatusNotifierHost = new Lang.Class({
     // create a unique index for the _items dictionary
     _getItemId: function(bus_name, obj_path) {
         return bus_name + obj_path;
+    },
+
+    itemRegistered: function(proxy, sender, [itemService]) {
+        Util.Logger.debug(`itemService<${typeof itemService}>: ${itemService}`)
+        global.ttt4 = itemService
+        const splitIndex = itemService.indexOf('/');
+        Util.Logger.debug(`splitIndex: ${splitIndex}`)
+        const busName = itemService.slice(0, splitIndex);
+        const objectPath = itemService.slice(splitIndex, itemService.length);
+
+        Util.Logger.debug(`busName: ${busName}, objectPath: ${objectPath}`)
+
+        const id = this._getItemId(busName, objectPath);
+        if (this._items[id]) {
+            //delete the old one and add the new indicator
+            Util.Logger.warn("Attempting to re-register "+id+"; resetting instead");
+
+            this._items[id].reset();
+        } else {
+            Util.Logger.debug("Registering StatusNotifierItem "+id);
+
+            let indicator = new AppIndicator.AppIndicator(busName, objectPath);
+            let visual = new IndicatorStatusIcon.IndicatorStatusIcon(indicator);
+            indicator.connect('destroy', visual.destroy.bind(visual));
+
+            this._items[id] = indicator;
+
+        }
     },
 
     RegisterStatusNotifierItemAsync: function(params, invocation) {
@@ -127,10 +161,10 @@ const StatusNotifierHost = new Lang.Class({
         invocation.return_value(null);
     },
 
-    _itemVanished: function(proxy, bus_name) {
+    _itemVanished: function(proxy, sender, [busName]) {
         // FIXME: this is useless if the path name disappears while the bus stays alive (not unheard of)
         for (var i in this._items) {
-            if (i.indexOf(bus_name) == 0) {
+            if (i.indexOf(busName) == 0) {
                 this._remove(i);
             }
         }
@@ -139,10 +173,10 @@ const StatusNotifierHost = new Lang.Class({
     _remove: function(id) {
         this._items[id].destroy();
         delete this._items[id];
-        Gio.DBus.session.unwatch_name(this._nameWatcher[id]);
-        delete this._nameWatcher[id];
-        this._dbusImpl.emit_signal('ServiceUnregistered', GLib.Variant.new('(s)', id));
-        this._dbusImpl.emit_property_changed('RegisteredStatusNotifierItems', GLib.Variant.new('as', this.RegisteredStatusNotifierItems));
+        // Gio.DBus.session.unwatch_name(this._nameWatcher[id]);
+        // delete this._nameWatcher[id];
+        // this._dbusImpl.emit_signal('ServiceUnregistered', GLib.Variant.new('(s)', id));
+        // this._dbusImpl.emit_property_changed('RegisteredStatusNotifierItems', GLib.Variant.new('as', this.RegisteredStatusNotifierItems));
     },
 
     // RegisterNotificationHost: function(service) {
@@ -172,12 +206,13 @@ const StatusNotifierHost = new Lang.Class({
         if (!this._isDestroyed) {
             // this doesn't do any sync operation and doesn't allow us to hook up the event of being finished
             // which results in our unholy debounce hack (see extension.js)
+            this.watcherProxy.destroy();
             Gio.DBus.session.unown_name(this._ownName);
-            this._dbusImpl.unexport();
-            for (var i in this._nameWatcher) {
-                Gio.DBus.session.unwatch_name(this._nameWatcher[i]);
-            }
-            delete this._nameWatcher;
+            // this._dbusImpl.unexport();
+            // for (var i in this._nameWatcher) {
+            //     Gio.DBus.session.unwatch_name(this._nameWatcher[i]);
+            // }
+            // delete this._nameWatcher;
             for (var i in this._items) {
                 this._items[i].destroy();
             }
