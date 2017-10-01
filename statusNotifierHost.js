@@ -79,6 +79,15 @@ const StatusNotifierHost = new Lang.Class({
             this._itemVanished.bind(this)
         );
         this.watcherProxy.RegisterStatusNotifierHostRemote(HOST_BUS_NAME);
+
+        const items = this.watcherProxy.RegisteredStatusNotifierItems;
+        Util.Logger.debug(items)
+        for (var item in items) {
+            this.itemRegistered(null, null, [item])
+        }
+        // this.watcherProxy.GetRegisteredStatusNotifierItemsRemote(args => {
+        //     Util.Logger.debug(args.toSource())
+        // })
     },
 
     _lostName: function() {
@@ -206,7 +215,7 @@ const StatusNotifierHost = new Lang.Class({
         if (!this._isDestroyed) {
             // this doesn't do any sync operation and doesn't allow us to hook up the event of being finished
             // which results in our unholy debounce hack (see extension.js)
-            this.watcherProxy.destroy();
+            delete this.watcherProxy;
             Gio.DBus.session.unown_name(this._ownName);
             // this._dbusImpl.unexport();
             // for (var i in this._nameWatcher) {
