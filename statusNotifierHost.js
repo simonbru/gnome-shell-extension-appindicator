@@ -36,7 +36,7 @@ const KDE_PREFIX = 'org.kde';
 const AYATANA_PREFIX = 'org.ayatana';
 const AYATANA_PATH_PREFIX = '/org/ayatana';
 
-const HOST_BUS_NAME = KDE_PREFIX + '.StatusNotifierHost-394712';
+// const HOST_BUS_NAME = KDE_PREFIX + '.StatusNotifierHost-394712';
 // const WATCHER_INTERFACE = HOST_BUS_NAME;
 // const WATCHER_OBJECT = '/StatusNotifierWatcher';
 
@@ -60,10 +60,14 @@ const StatusNotifierHost = new Lang.Class({
         );
 
         this._everAcquiredName = false;
-        this._ownName = Gio.DBus.session.own_name(HOST_BUS_NAME,
-                                  Gio.BusNameOwnerFlags.NONE,
-                                  Lang.bind(this, this._acquiredName),
-                                  Lang.bind(this, this._lostName));
+        const randomId = Math.floor(Math.random() * 10000);
+        this._hostBusName = `${KDE_PREFIX}.StatusNotifierHost-${randomId}`;
+        this._ownName = Gio.DBus.session.own_name(
+            this._hostBusName,
+            Gio.BusNameOwnerFlags.NONE,
+            Lang.bind(this, this._acquiredName),
+            Lang.bind(this, this._lostName)
+        );
         this._items = { };
         this._nameWatcher = { };
     },
@@ -80,7 +84,7 @@ const StatusNotifierHost = new Lang.Class({
             "StatusNotifierItemUnregistered",
             this._itemVanished.bind(this)
         );
-        this.watcherProxy.RegisterStatusNotifierHostRemote(HOST_BUS_NAME);
+        this.watcherProxy.RegisterStatusNotifierHostRemote(this._hostBusName);
 
         const items = this.watcherProxy.RegisteredStatusNotifierItems;
         Util.Logger.debug(items)
@@ -94,9 +98,9 @@ const StatusNotifierHost = new Lang.Class({
 
     _lostName: function() {
         if (this._everAcquiredName)
-            Util.Logger.debug('Lost name' + HOST_BUS_NAME);
+            Util.Logger.debug('Lost name' + this._hostBusName);
         else
-            Util.Logger.warn('Failed to acquire ' + HOST_BUS_NAME);
+            Util.Logger.warn('Failed to acquire ' + this._hostBusName);
     },
 
 
