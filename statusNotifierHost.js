@@ -72,7 +72,9 @@ const StatusNotifierHost = new Lang.Class({
         this._everAcquiredName = true;
         this.watcherProxy.connectSignal(
             "StatusNotifierItemRegistered",
-            this.itemRegistered.bind(this)
+            (proxy, sender, [itemService]) => {
+                this.itemRegistered(itemService)
+            }
         );
         this.watcherProxy.connectSignal(
             "StatusNotifierItemUnregistered",
@@ -82,8 +84,8 @@ const StatusNotifierHost = new Lang.Class({
 
         const items = this.watcherProxy.RegisteredStatusNotifierItems;
         Util.Logger.debug(items)
-        for (var item in items) {
-            this.itemRegistered(null, null, [item])
+        for (let item of items) {
+            this.itemRegistered(item)
         }
         // this.watcherProxy.GetRegisteredStatusNotifierItemsRemote(args => {
         //     Util.Logger.debug(args.toSource())
@@ -103,7 +105,7 @@ const StatusNotifierHost = new Lang.Class({
         return bus_name + obj_path;
     },
 
-    itemRegistered: function(proxy, sender, [itemService]) {
+    itemRegistered: function(itemService) {
         Util.Logger.debug(`itemService<${typeof itemService}>: ${itemService}`)
         global.ttt4 = itemService
         const splitIndex = itemService.indexOf('/');
